@@ -5,6 +5,7 @@ from datetime import datetime
 class DompetEmoney:
     def __init__(self, saldo_awal: int = 0):
         self.__saldo = saldo_awal
+        self.riwayat_mutasi = []
 
     def get_saldo(self) -> int:
         return self.__saldo
@@ -13,12 +14,14 @@ class DompetEmoney:
         if nominal <= 0:
             return False
         self.__saldo += nominal
+        self.riwayat_mutasi.append(("TOP_UP", nominal, datetime.now().strftime("%Y-%m-%d %H:%M")))
         return True
 
     def bayar(self, nominal: int) -> bool:
         if nominal <= 0 or self.__saldo < nominal:
             return False
         self.__saldo -= nominal
+        self.riwayat_mutasi.append(("BAYAR", -nominal, datetime.now().strftime("%Y-%m-%d %H:%M")))
         return True
 
 
@@ -67,6 +70,7 @@ class Misi:
         self.progres = 0
         self.reward_poin = reward_poin
         self.selesai = False
+        self.sudah_diklaim = False
 
     def tambah_progres(self, langkah: int = 1) -> bool:
         if self.selesai:
@@ -75,7 +79,7 @@ class Misi:
         if self.progres >= self.target:
             self.progres = self.target
             self.selesai = True
-            return True  # Menandakan misi baru saja tuntas
+            return True
         return False
 
 
@@ -88,6 +92,7 @@ class AkunKomuter:
         self.dompet = DompetEmoney(saldo_awal)
         self.kmt = None
         self.riwayat_tiket = []
+        self.voucher_aktif = []
 
     def get_poin(self) -> int:
         return self.__poin
@@ -127,11 +132,27 @@ class AkunKomuter:
         self.tambah_poin(poin_reward)
         return tiket_baru
 
+    def klaim_misi(self, misi: Misi) -> bool:
+        if misi.selesai and not misi.sudah_diklaim:
+            misi.sudah_diklaim = True
+            self.tambah_poin(misi.reward_poin)
+            return True
+        return False
 
-# Blok uji coba mandiri (hanya jalan jika file ini di-run langsung)
+    def redeem_voucher(self, nama_voucher: str, biaya_poin: int) -> bool:
+        if self.kurangi_poin(biaya_poin):
+            self.voucher_aktif.append(nama_voucher)
+            return True
+        return False
+
+
 if __name__ == "__main__":
     user = AkunKomuter("U01", "Budi", saldo_awal=50000)
-    tiket = user.beli_tiket("Blok M", "Sudirman", ["MRT", "Jalan Kaki"], 6000, 50, metode="EMONEY")
+    tiket = user.beli_tiket("Blok M", "Sudirman", ["MRT", "Jalan Kaki"], 6000, 150, metode="EMONEY")
     print("Tiket berhasil:", tiket)
     print("Sisa saldo E-Money:", user.dompet.get_saldo())
-    print("Poin & Level sekarang:", user.get_poin(), "-", user.get_level())
+    print("Mutasi:", user.dompet.riwayat_mutasi)
+
+    if user.redeem_voucher("Diskon Kopi Stasiun 20%", 100):
+        print("Voucher aktif:", user.voucher_aktif)
+        print("Sisa poin:", user.get_poin())
